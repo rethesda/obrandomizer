@@ -81,9 +81,9 @@ enum ItemRetrieval {
 	none = 0,
 	all = 1,
 	noQuestItems = 2,
-	rejectOnQuestItem = 3,
-	noAccumulation = 4,
-	noTESContainer = 8,
+	rejectOnQuestItem = 4,
+	noAccumulation = 8,
+	noTESContainer = 16,
 };
 
 #define TESFORM2STRING(x) #x
@@ -93,6 +93,7 @@ extern TESForm* obrnFlag;
 bool modelExists(TESForm* f);
 bool isQuestOrScriptedItem(TESForm* item, bool keysAreQuestItems);
 bool creatureValid(const char* name, const char* model);
+bool formIsItem(TESForm* form);
 bool refIsItem(TESObjectREFR* ref);
 bool itemIsEquippable(TESForm* item);
 const char* FormTypeToString(int form);

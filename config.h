@@ -23,6 +23,8 @@ struct OblivionCfgSection {
 
 class OblivionCfg {
 private:
+	bool compilingFiles;
+	bool overwriteSeedData;
 	bool oSeedRead;
 	char seedFile[256];
 public:
@@ -39,6 +41,11 @@ public:
 	OblivionCfgValueType GetSettingType(const char* name, SInt32* offset);
 	bool InitSeedRandomizationData(std::unordered_map<UInt32, UInt32>& allRandomized);
 	bool WriteSeedRandomizationData(UInt32 from, UInt32 to);
+	bool OverwriteSeedRandomizationDataDo(const std::unordered_map<UInt32, UInt32>& allRandomized);
+	void MarkChangeSeedData() { overwriteSeedData = true;  }
+	bool IsChangeMarked() { return overwriteSeedData; }
+	void SetCompilingFiles(bool value) { compilingFiles = true; }
+	bool IsCompilingFiles() { return compilingFiles;  }
 	//[Misc]
 	UInt32 oSeed;
 	bool oSaveSeedData;

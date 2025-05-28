@@ -117,6 +117,8 @@ OblivionCfg::OblivionCfg() {
 	oSkipHorses = true;
 
 	seedFile[0] = 0;
+	overwriteSeedData = false;
+	compilingFiles = false;
 
 	randId = 0xFF;
 	for (int i = 0; i < 0xFF; ++i) {
@@ -329,9 +331,10 @@ bool OblivionCfg::InitSeedRandomizationData(std::unordered_map<UInt32, UInt32>& 
 	UInt32 data[2];
 	size_t cnt;
 	while ((cnt = fread(data, sizeof(UInt32), 2, f)) == 2) {
-		//check if the new item exists
 		if (!LookupFormByID(data[1])) {
-			_ERROR("...new form %08X does not exist, skipping...", data[1]);
+			//keeping this here will save us from potential bloat
+			_ERROR(" could not find new base %08X", data[1]);
+			MarkChangeSeedData();
 			continue;
 		}
 		allRandomized.insert(std::make_pair(data[0], data[1]));
@@ -341,7 +344,7 @@ bool OblivionCfg::InitSeedRandomizationData(std::unordered_map<UInt32, UInt32>& 
 		_ERROR("...unexpected end of file, read only %i record(s). Expected: 2.", cnt);
 		return false;
 	}
-	_MESSAGE("...success.");
+	_MESSAGE("Operation finished.");
 	return true;
 }
 
@@ -362,4 +365,42 @@ bool OblivionCfg::WriteSeedRandomizationData(UInt32 from, UInt32 to)
 	fwrite(&to, sizeof(to), 1, f);
 	fclose(f);
 	return true;
+}
+
+bool OblivionCfg::OverwriteSeedRandomizationDataDo(const std::unordered_map<UInt32, UInt32>& allRandomized)
+{
+	if (!overwriteSeedData) {
+		return false;
+	}
+	overwriteSeedData = false;
+	if (!HasSeed() || !oSaveSeedData) {
+		return false;
+	}
+	if (!seedFile[0]) {
+		sprintf_s(seedFile, "obrn-seed-data/%u.bin", oSeed);
+	}
+	char seedFileBackup[256];
+	sprintf_s(seedFileBackup, "obrn-seed-data/%u.bin.backup", oSeed);
+	_WARNING(__FUNCTION__": replacing old seed data due to randomization restoration errors. This may have been caused by changing your mod load order.");
+	if (!remove(seedFileBackup)) {
+		_WARNING("...removing old backup file");
+	}
+	if (!rename(seedFile, seedFileBackup)) {
+		_WARNING("...successfully renamed old seed data file to %s", seedFileBackup);
+	}
+	else {
+		_ERROR("...failed to rename old seed data file.");
+	}
+	FILE* f = fopen(seedFile, "wb");
+	if (!f) {
+		_ERROR(__FUNCTION__": could not open binary file %s for writing.", seedFile);
+		return false;
+	}
+	for (const auto &[from, to] : allRandomized) {
+		fwrite(&from, sizeof(from), 1, f);
+		fwrite(&to, sizeof(to), 1, f);
+	}
+	fclose(f);
+	_MESSAGE("Operation finished.");
+	return false;
 }

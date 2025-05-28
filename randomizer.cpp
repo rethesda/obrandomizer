@@ -364,6 +364,41 @@ TESForm* getRandomBySetting(TESForm* f, int option, bool keysAreQuestItems) {
 	}
 }
 
+static TESForm* restoreRandomizationMapping(TESObjectREFR* ref, bool forceRerandomize) {
+	auto mapping = allRandomized.find(ref->refID);
+	if (mapping == allRandomized.end()) {
+		return NULL;
+	}
+	if (forceRerandomize) {
+		config.MarkChangeSeedData();
+		return NULL;
+	}
+	if (ref->baseForm->refID == mapping->second) {
+		return ref->baseForm;
+	}
+	TESForm* form = LookupFormByID(mapping->second);
+	if (!form) {
+		//this block of code should never get executed - if a new base doesn't exist, it will be detected while reading the config
+		_ERROR(__FUNCTION__": catastrophic error: couldn't restore randomization mapping for reference %s %08X. Expected to find form %08X, but it does not exist.",
+			GetFullName(ref), ref->refID, mapping->second);
+		config.MarkChangeSeedData();
+		return NULL;
+	}
+	//check for type mismatch - this should happen only if the load order has changed
+	if (form->GetFormType() != ref->baseForm->GetFormType() && formIsItem(form) != refIsItem(ref)) {
+		_ERROR(__FUNCTION__": type mismatch for reference %s %08X and form %s %08X (%s vs %s).",
+			GetFullName(ref), ref->refID, GetFullName(form), form->refID, FormTypeToString(ref->baseForm->GetFormType()),
+			FormTypeToString(form->GetFormType()));
+		config.MarkChangeSeedData();
+		return NULL;
+	}
+#ifdef _DEBUG
+	_MESSAGE(__FUNCTION__": restoring mapping of %s %08X to %s %08X",
+		GetFullName(ref), ref->refID, GetFullName(form), form->refID);
+#endif
+	return form;
+}
+
 static void randomizeInventory(TESObjectREFR* ref) {
 	if (allGenericItems.size() == 0 || allWeapons.size() == 0 || allClothingAndArmor.size() == 0) {
 		return;
@@ -925,6 +960,9 @@ bool restoreCreatureInventory(TESObjectREFR* ref) {
 	//to check whether their inventories were restored. we will just clean them
 	//and restore them every reload. not ideal, but i dont think any solution
 	//within this mod is ideal
+#ifdef _DEBUG
+	_MESSAGE(__FUNCTION__": attemping to restore the inventory of %s %08X", GetFullName(ref), ref->refID);
+#endif
 	if (!obrnFlag) {
 		return false;
 	}
@@ -968,18 +1006,31 @@ bool restoreCreatureInventory(TESObjectREFR* ref) {
 	ForceActorValue(actor, kActorVal_Aggression, critter->GetActorValue(kActorVal_Aggression));
 	restoredInventories.insert(ref->refID);
 	std::unordered_map<TESForm*, int> items, currentItems;
-	getInventoryFromTESContainer(&critter->container, items, (ItemRetrieval::all | ItemRetrieval::noAccumulation));
-	bool hasFlag = getContainerInventory(ref, currentItems, (ItemRetrieval::all));
+	UInt16 questItemsMask = config.oExcludeQuestItems ? ItemRetrieval::noQuestItems : ItemRetrieval::all;
+#ifdef _DEBUG
+	_MESSAGE("* Trying to acquire pre-randomization items");
+#endif
+	getInventoryFromTESContainer(&critter->container, items, ItemRetrieval::all);
+#ifdef _DEBUG
+	_MESSAGE("* Trying to acquire current items");
+#endif
+	bool hasFlag = getContainerInventory(ref, currentItems, /*questItemsMask*/ItemRetrieval::all);
 	if (!hasFlag) {
 		//1. delete all items
 		//2. give flag
 		//3. give original items
 		//4. give new items provided they are equippable and the creature is not dead
 		for (const auto& it : currentItems) {
+#ifdef _DEBUG
+			_MESSAGE("  deleting %s %08X x%i", GetFullName(it.first), it.first->refID, it.second);
+#endif
 			ref->RemoveItem(it.first, NULL, it.second, 0, 0, NULL, NULL, NULL, 0, 0);
 		}
 		ref->AddItem(obrnFlag, NULL, 1);
 		for (const auto& it : items) {
+#ifdef _DEBUG
+			_MESSAGE("  adding original %s %08X x%i", GetFullName(it.first), it.first->refID, it.second);
+#endif
 			ref->AddItem(it.first, NULL, it.second);
 		}
 	}
@@ -1003,7 +1054,10 @@ bool restoreCreatureInventory(TESObjectREFR* ref) {
 		return true;
 	}
 	items.clear();
-	getInventoryFromTESContainer(&critter_new->container, items, (ItemRetrieval::all | ItemRetrieval::noAccumulation));
+#ifdef _DEBUG
+	_MESSAGE("* Trying to acquire post-randomization items");
+#endif
+	getInventoryFromTESContainer(&critter_new->container, items, questItemsMask);
 	for (const auto& it : items) {
 		if (!itemIsEquippable(it.first)) {
 			continue;
@@ -1042,33 +1096,27 @@ static void randomizeCreature(TESObjectREFR* ref, const char* function) {
 	if (health == 0) {
 		return;
 	}
-	TESForm* rando = NULL;
-	if (strcmp(function, "ESP") == 0) {
-		rando = LookupFormByID(allCreatures[rng(0, allCreatures.size() - 1)]);
+	TESForm* rando = restoreRandomizationMapping(ref, strcmp(function, "ESP") == 0);
+	if (ref->baseForm == rando) {
+		return;
 	}
-	else {
-		auto mapping = allRandomized.find(ref->refID);
-		if (mapping != allRandomized.end()) {
-			//we are already randomized
-			if (ref->baseForm->refID == mapping->second) {
-				return;
-			}
-			rando = LookupFormByID(mapping->second);
-#ifdef _DEBUG
-			_MESSAGE("Restoration from mapping: %s %08X (%08X) => %s %08X (%08X),",
-				GetFullName(ref), ref->refID, ref,
-				GetFullName(rando), rando->refID, rando);
-#endif
-		}
-		if (!rando) {
-			rando = LookupFormByID(allCreatures[rng(0, allCreatures.size() - 1)]);
-			allRandomized.insert(std::make_pair(ref->refID, rando->refID));
+	bool restored = true;
+	if (!rando) {
+		rando = LookupFormByID(allCreatures[rng(0, allCreatures.size() - 1)]);
+		restored = false;
+	}
+	if (!restored) {
+		if (!config.IsChangeMarked()) {
 			config.WriteSeedRandomizationData(ref->refID, rando->refID);
 		}
+		else if (!config.IsCompilingFiles()) {
+			config.OverwriteSeedRandomizationDataDo(allRandomized);
+		}
+		allRandomized.insert_or_assign(ref->refID, rando->refID);
 	}
+	oldCreatures.insert_or_assign(ref->refID, ref->baseForm->refID);
 	//std::unordered_map<TESForm*, int> keepItems;
 	//getContainerInventory(ref, keepItems, (ItemRetrieval::all | ItemRetrieval::noAccumulation));
-	oldCreatures.insert(std::make_pair(ref->refID, ref->baseForm->refID));
 	TESForm* oldBaseForm = ref->GetTemplateForm() ? ref->GetTemplateForm() : ref->baseForm;
 #ifdef _DEBUG
 	_MESSAGE("%s: Going to randomize %s %08X into %s %08X", function, GetFullName(ref), ref->refID, GetFullName(rando), rando->refID);
@@ -1105,33 +1153,26 @@ static void randomizeWorldItem(TESObjectREFR* ref, const char* function) {
 #ifdef _DEBUG
 	_MESSAGE("%s: World item randomization: will try to randomize %s %08X", function, GetFullName(ref), ref->refID);
 #endif
-	TESForm* rando = NULL;
-	if (strcmp(function, "ESP") == 0) {
-		rando = getRandomBySetting(ref->baseForm, config.oWorldItems, false);
-		if (!rando) {
-			return;
-		}
+	TESForm* rando = restoreRandomizationMapping(ref, strcmp(function, "ESP") == 0);
+	if (ref->baseForm == rando) {
+		return;
 	}
-	else {
-		auto mapping = allRandomized.find(ref->refID);
-		if (mapping != allRandomized.end()) {
-			if (ref->baseForm->refID == mapping->second) {
-				return;
-			}
-			rando = LookupFormByID(mapping->second);
-#ifdef _DEBUG
-			_MESSAGE("Restoration from mapping: %s %08X => %s %08X", GetFullName(ref), ref->refID,
-				GetFullName(rando), rando->refID);
-#endif
-		}
-		if (!rando) {
-			rando = getRandomBySetting(ref->baseForm, config.oWorldItems, false);
-			if (!rando) {
-				return;
-			}
-			allRandomized.insert(std::make_pair(ref->refID, rando->refID));
+	bool restored = true;
+	if (!rando) {
+		rando = getRandomBySetting(ref->baseForm, config.oWorldItems, false);
+		restored = false;
+	}
+	if (!rando) {
+		return;
+	}
+	if (!restored) {
+		if (!config.IsChangeMarked()) {
 			config.WriteSeedRandomizationData(ref->refID, rando->refID);
 		}
+		else if (!config.IsCompilingFiles()) {
+			config.OverwriteSeedRandomizationDataDo(allRandomized);
+		}
+		allRandomized.insert_or_assign(ref->refID, rando->refID);
 	}
 #ifdef _DEBUG
 	_MESSAGE("%s: Going to randomize %s %08X into %s %08X", function, GetFullName(ref), ref->refID, GetFullName(rando), rando->refID);

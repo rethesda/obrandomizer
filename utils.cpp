@@ -161,8 +161,8 @@ bool creatureValid(const char* name, const char* model) {
 	return true;
 }
 
-bool refIsItem(TESObjectREFR* ref) {
-	switch (ref->baseForm->GetFormType()) {
+bool formIsItem(TESForm* form) {
+	switch (form->GetFormType()) {
 	case kFormType_Armor:
 	case kFormType_Clothing:
 	case kFormType_Weapon:
@@ -179,6 +179,10 @@ bool refIsItem(TESObjectREFR* ref) {
 	default:
 		return false;
 	}
+}
+
+bool refIsItem(TESObjectREFR* ref) {
+	return formIsItem(ref->baseForm);
 }
 
 bool itemIsEquippable(TESForm* item) {
@@ -456,7 +460,8 @@ bool getContainerInventory(TESObjectREFR* ref, std::unordered_map<TESForm*, int>
 			//_MESSAGE("Ref: %s (%08X) (base: %s %08X) : found a %s (%08X %s), quantity: %i",
 			//	GetFullName(ref), ref->refID, GetFullName(ref->baseForm), ref->baseForm->refID, GetFullName(item), item->refID, FormToString(item->GetFormType()), count);
 #ifdef _DEBUG_LEVLIST
-			_MESSAGE("    Found item %s %08X x%u", GetFullName(item), item->refID, count);
+			_MESSAGE("    Found item %s %08X (%s) x%u", 
+				GetFullName(item), item->refID, FormTypeToString(item->GetFormType()), count);
 #endif
 			if (GetFullName(item)[0] != '<' && (addQuestItems || !isQuestOrScriptedItem(item, false))) {
 				auto it = itemList.find(item);

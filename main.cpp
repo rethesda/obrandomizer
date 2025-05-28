@@ -32,6 +32,7 @@ int __fastcall CompileFiles_Hook(DWORD* _this, void* _edx, char a2, char a3) {
 	}
 	int result = CompileFiles(_this, a2, a3);
 	if (result) {
+		config.SetCompilingFiles(true);
 		fillUpWpRanges();
 		fillUpClothingRanges();
 		for (auto it : allAdded) {
@@ -54,6 +55,8 @@ int __fastcall CompileFiles_Hook(DWORD* _this, void* _edx, char a2, char a3) {
 			_ERROR("Couldn't find OBRN Flag in the loaded files. Some features will not work properly.");
 		}
 		allAdded.clear();
+		config.OverwriteSeedRandomizationDataDo(allRandomized);
+		config.SetCompilingFiles(false);
 #ifdef _DEBUG
 		logDetailedListInfo();
 #endif

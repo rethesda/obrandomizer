@@ -3,8 +3,8 @@ Information
 =============
 Name: Oblivion Randomizer Mod
 Author: lost cause / brndd
-Date: May 28 2025
-Version: 1.1.0
+Date: Dec 07 2025
+Version: 1.1.1
 
 =============
 Description
@@ -28,6 +28,14 @@ Oblivion Randomizer seeks to randomize as many parts of the game as possible, wh
 =============
 Changelog
 =============
+v1.1.1:
+* fixed a mismatch between a button name and its description in the GUI application
+* fixed a bug that caused the plugin to always view the player's level as 0
+* fixed a bug when randomizing gold quantity that caused the target actor's level to be incorrectly retrieved
+* the list stat message in the console will now display the mod version
+* if the player has the OBRN flag ("You should not see this") in their inventory during load, it will be removed
+* fixed a bug that sometimes caused guards to indefinitely give the player the OBRN flag
+
 v1.1.0:
 * BACKWARDS CONFIG INCOMPATIBILITY: configs made for the previous versions of the mod will no longer be compatible with this version
 * added a GUI application to facilitate config creation

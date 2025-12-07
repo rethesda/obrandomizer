@@ -417,7 +417,10 @@ static void randomizeInventory(TESObjectREFR* ref) {
 				break;
 			case ITEM_GOLD:
 				if (!config.oRandGold) {
-					ref->AddItem(item, NULL, rng(5, 60) * getRefLevelAdjusted(ref) - cnt);
+					int addCnt = rng(2, 25) * getRefLevelAdjusted(ref) - cnt;
+					if (addCnt > 0) {
+						ref->AddItem(item, NULL, addCnt);
+					}
 					break;
 				}
 			default:
@@ -455,7 +458,7 @@ static void randomizeInventory(TESObjectREFR* ref) {
 #ifdef _DEBUG
 			_MESSAGE("GOLD: %s receiving gold", GetFullName(ref));
 #endif
-			ref->AddItem(LookupFormByID(ITEM_GOLD), NULL, rng(5, 60) * level);
+			ref->AddItem(LookupFormByID(ITEM_GOLD), NULL, rng(2, 25) * level);
 		}
 		//Weapon Randomization
 		int clothingStatus = OBRNRC_LOWER | OBRNRC_FOOT | OBRNRC_HAND | OBRNRC_UPPER;

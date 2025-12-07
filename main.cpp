@@ -19,7 +19,7 @@ OblivionCfg config;
 
 #define OBRN_VERSION_MAJOR 1
 #define OBRN_VERSION_MINOR 1
-#define OBRN_VERSION_REVISION 0
+#define OBRN_VERSION_REVISION 1
 
 #define CompileFiles_Addr 0x0044F3D0
 typedef int(__thiscall* CompileFiles_t)(DWORD*, char, char);
@@ -448,7 +448,7 @@ bool Cmd_OBRNListsReady_Execute(COMMAND_ARGS) {
 	*result = allCreatures.size() && allClothingAndArmor.size() && allGenericItems.size() && allWeapons.size() ? 1.0 : 0.0;
 	restoredInventories.clear();
 	if (!stats) {
-		Console_Print("Randomizer's Lists Info:");
+		Console_Print("Oblivion Randomizer v%i.%i.%i", OBRN_VERSION_MAJOR, OBRN_VERSION_MINOR, OBRN_VERSION_REVISION);
 		Console_Print("Number of creatures: %u", allCreatures.size());
 		Console_Print("Number of clothing/armor: %u", getNumItems(&allClothingAndArmor));
 		Console_Print("Number of generic items: %u", getNumItems(&allGenericItems));

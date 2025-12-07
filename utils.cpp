@@ -489,7 +489,10 @@ bool getContainerInventory(TESObjectREFR* ref, std::unordered_map<TESForm*, int>
 }
 
 int getPlayerLevel() {
-	TESActorBase* actorBase = OBLIVION_CAST(*g_thePlayer, PlayerCharacter, TESActorBase);
+	if (!(*g_thePlayer)->baseForm) {
+		return 0;
+	}
+	TESActorBase* actorBase = OBLIVION_CAST((*g_thePlayer)->baseForm, TESForm, TESActorBase);
 	if (!actorBase) {
 		return 0;
 	}
@@ -502,7 +505,18 @@ int getRefLevelAdjusted(TESObjectREFR* ref) {
 	}
 	Actor* actor = OBLIVION_CAST(ref, TESObjectREFR, Actor);
 	TESActorBase* actorBase = OBLIVION_CAST(actor->baseForm, TESForm, TESActorBase);
-	return std::min(1, actorBase->actorBaseData.IsPCLevelOffset() ? getPlayerLevel() + actorBase->actorBaseData.level : actorBase->actorBaseData.level);
+	auto actorBaseData = &actorBase->actorBaseData;
+	int levelAdj = actorBaseData->level;
+	if (actorBaseData->IsPCLevelOffset()) {
+		levelAdj += getPlayerLevel();
+		if (actorBaseData->minLevel && levelAdj < actorBaseData->minLevel) {
+			levelAdj = actorBaseData->minLevel;
+		}
+		if (actorBaseData->maxLevel && levelAdj > actorBaseData->maxLevel) {
+			levelAdj = actorBaseData->maxLevel;
+		}
+	}
+	return std::max(1, levelAdj);
 }
 
 UInt8 GetModIndexShifted(const std::string& name) {
